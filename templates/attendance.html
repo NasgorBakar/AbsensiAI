@@ -1,0 +1,287 @@
+{% extends 'base.html' %}
+
+{% block title %}Absensi Kamera AI{% endblock %}
+
+{% block content %}
+<div class="container my-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <!-- Header Card -->
+            <div class="card border-0 shadow-sm rounded-4 mb-4 text-center p-4">
+                <h3 class="fw-bold mb-1">
+                    <i class="fa-solid fa-camera-viewfinder text-primary me-2"></i> Pindai Wajah untuk Absensi
+                </h3>
+                <p class="text-muted mb-0">
+                    Arahkan wajah Anda ke tengah bingkai kamera. Pastikan pencahayaan cukup dan hanya 1 orang di depan kamera.
+                </p>
+                <div class="mt-2">
+                    <span class="badge bg-primary-subtle text-primary rounded-pill px-3 py-1">
+                        Batas Waktu Tepat Waktu: Sebelum 07:15 WIB
+                    </span>
+                </div>
+            </div>
+
+            {% if already_attended %}
+            <!-- Warning jika sudah absen hari ini -->
+            <div class="alert alert-info border-0 shadow-sm rounded-4 p-4 mb-4 text-center">
+                <i class="fa-solid fa-circle-check text-info fs-1 mb-2"></i>
+                <h4 class="fw-bold">Anda Sudah Melakukan Absensi Hari Ini!</h4>
+                <p class="mb-2">
+                    Tercatat pada <strong>{{ today_att.tanggal }}</strong> pukul <strong>{{ today_att.waktu }} WIB</strong> 
+                    dengan status: <span class="badge {% if today_att.status == 'Hadir' %}bg-success{% else %}bg-warning{% endif %}">{{ today_att.status }}</span>
+                </p>
+                <a href="{{ url_for('student_dashboard') }}" class="btn btn-outline-primary rounded-pill px-4 mt-2">
+                    <i class="fa-solid fa-arrow-left me-1"></i> Kembali ke Dashboard
+                </a>
+            </div>
+            {% endif %}
+
+            <!-- Camera Box Container -->
+            <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4">
+                <div class="card-body p-0 position-relative bg-dark text-center" style="min-height: 440px;">
+                    
+                    <!-- Video Feed -->
+                    <video id="webcam" autoplay playsinline muted class="w-100 h-100 object-fit-cover" style="max-height: 480px;"></video>
+                    
+                    <!-- Hidden Canvas for frame snapshot -->
+                    <canvas id="snapshotCanvas" class="d-none"></canvas>
+
+                    <!-- Face Guide Overlay -->
+                    <div id="faceGuide" class="face-guide-overlay">
+                        <div class="face-frame">
+                            <div class="scanner-line"></div>
+                        </div>
+                        <div class="guide-text text-white small px-3 py-1 rounded-pill bg-dark bg-opacity-75">
+                            Posisikan wajah di dalam kotak
+                        </div>
+                    </div>
+
+                    <!-- Camera Placeholder/Offline State -->
+                    <div id="cameraOffline" class="position-absolute top-50 start-50 translate-middle text-white text-center d-none">
+                        <i class="fa-solid fa-video-slash fs-1 opacity-50 mb-3"></i>
+                        <h5>Kamera Belum Aktif</h5>
+                        <p class="small text-white-50">Izinkan akses kamera di browser Anda untuk melanjutkan</p>
+                    </div>
+
+                    <!-- Scanning Indicator Badge -->
+                    <div id="scanIndicator" class="position-absolute top-0 start-50 translate-middle-x mt-3 d-none">
+                        <span class="badge bg-warning text-dark px-3 py-2 rounded-pill shadow">
+                            <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                            Sedang Memindai Wajah...
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Controls Footer -->
+                <div class="card-footer bg-white p-3 border-0 d-flex flex-wrap justify-content-between align-items-center gap-2">
+                    <div class="d-flex align-items-center gap-2">
+                        <button id="btnStartCamera" class="btn btn-outline-secondary rounded-pill px-3" onclick="startWebcam()">
+                            <i class="fa-solid fa-play me-1"></i> Nyalakan Kamera
+                        </button>
+                        <div class="form-check form-switch ms-2">
+                            <input class="form-check-input" type="checkbox" id="autoScanToggle" checked>
+                            <label class="form-check-label small" for="autoScanToggle">Pindai Otomatis</label>
+                        </div>
+                    </div>
+
+                    <button id="btnCapture" class="btn btn-primary rounded-pill px-4 fw-semibold shadow-sm" onclick="scanFaceNow()">
+                        <i class="fa-solid fa-camera me-1"></i> Pindai Sekarang
+                    </button>
+                </div>
+            </div>
+
+            <!-- Result Box -->
+            <div id="resultCard" class="card border-0 shadow-sm rounded-4 d-none mb-4">
+                <div class="card-body p-4 text-center" id="resultBody">
+                    <!-- Dynamic Result Injected Here -->
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let video = document.getElementById('webcam');
+let canvas = document.getElementById('snapshotCanvas');
+let autoScanToggle = document.getElementById('autoScanToggle');
+let isScanning = false;
+let autoScanTimer = null;
+let stream = null;
+
+// Mulai webcam secara otomatis saat halaman dimuat
+window.addEventListener('DOMContentLoaded', () => {
+    startWebcam();
+});
+
+async function startWebcam() {
+    // Validasi Secure Context (HTTPS) untuk kamera di Production
+    if (!window.isSecureContext && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Koneksi HTTPS Diperlukan',
+            text: 'Peramban (browser) mewajibkan koneksi HTTPS untuk membuka kamera di server produksi. Pastikan Anda mengakses web dengan awalan https://',
+            confirmButtonColor: '#0d6efd'
+        });
+        document.getElementById('cameraOffline').classList.remove('d-none');
+        return;
+    }
+
+    try {
+        const constraints = {
+            video: {
+                width: { ideal: 640 },
+                height: { ideal: 480 },
+                facingMode: "user"
+            }
+        };
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+        video.srcObject = stream;
+        document.getElementById('cameraOffline').classList.add('d-none');
+        document.getElementById('btnStartCamera').classList.add('d-none');
+        
+        // Mulai auto-scan setelah kamera ready
+        video.onloadedmetadata = () => {
+            startAutoScanLoop();
+        };
+    } catch (err) {
+        console.error("Gagal membuka kamera: ", err);
+        document.getElementById('cameraOffline').classList.remove('d-none');
+        document.getElementById('btnStartCamera').classList.remove('d-none');
+        Swal.fire({
+            icon: 'error',
+            title: 'Kamera Tidak Tersedia',
+            text: 'Mohon izinkan akses kamera di browser Anda atau periksa perangkat webcam Anda.',
+            confirmButtonColor: '#0d6efd'
+        });
+    }
+}
+
+function startAutoScanLoop() {
+    if (autoScanTimer) clearInterval(autoScanTimer);
+    autoScanTimer = setInterval(() => {
+        if (autoScanToggle.checked && !isScanning && video.readyState === 4) {
+            scanFaceNow(true);
+        }
+    }, 2500);
+}
+
+async function scanFaceNow(isAuto = false) {
+    if (isScanning) return;
+    
+    // Siapkan canvas untuk capture frame
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+
+    isScanning = true;
+    document.getElementById('scanIndicator').classList.remove('d-none');
+
+    try {
+        const response = await fetch('/api/attendance/scan', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image: dataUrl })
+        });
+
+        const result = await response.json();
+        document.getElementById('scanIndicator').classList.add('d-none');
+
+        if (response.ok && result.success) {
+            // Berhasil Absen
+            if (autoScanTimer) clearInterval(autoScanTimer);
+            showResultSuccess(result);
+            playSuccessSound();
+        } else {
+            // Gagal Absen
+            if (!isAuto) {
+                // Tampilkan alert hanya jika dipicu manual oleh user agar tidak spam
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Gagal Memverifikasi',
+                    text: result.message || 'Wajah tidak dikenali atau tidak valid.',
+                    confirmButtonColor: '#0d6efd'
+                });
+            }
+        }
+    } catch (error) {
+        console.error("Error scan:", error);
+        document.getElementById('scanIndicator').classList.add('d-none');
+    } finally {
+        isScanning = false;
+    }
+}
+
+function showResultSuccess(res) {
+    const data = res.data;
+    const isHadir = data.status === 'Hadir';
+    const badgeClass = isHadir ? 'bg-success' : 'bg-warning text-dark';
+
+    const resultCard = document.getElementById('resultCard');
+    const resultBody = document.getElementById('resultBody');
+    
+    resultBody.innerHTML = `
+        <div class="text-success mb-3">
+            <i class="fa-solid fa-circle-check fs-1"></i>
+        </div>
+        <h4 class="fw-bold text-dark mb-1">Presensi Berhasil Dicatat!</h4>
+        <p class="text-muted mb-3">Sistem AI Face Recognition berhasil memverifikasi kehadiran Anda.</p>
+        
+        <div class="row g-2 justify-content-center mb-4">
+            <div class="col-sm-5 text-start border rounded-3 p-3 bg-light">
+                <div class="small text-muted">Nama Siswa</div>
+                <div class="fw-bold">${data.nama}</div>
+                <div class="small text-muted mt-2">Kelas / NIS</div>
+                <div class="fw-semibold">${data.kelas || '-'} (${data.student_id})</div>
+            </div>
+            <div class="col-sm-5 text-start border rounded-3 p-3 bg-light">
+                <div class="small text-muted">Waktu Kehadiran</div>
+                <div class="fw-bold">${data.waktu} WIB</div>
+                <div class="small text-muted mt-2">Status</div>
+                <div><span class="badge ${badgeClass} px-3 py-1 rounded-pill">${data.status}</span></div>
+            </div>
+        </div>
+
+        <div class="d-flex justify-content-center gap-2">
+            <a href="/dashboard" class="btn btn-primary rounded-pill px-4">
+                <i class="fa-solid fa-gauge me-1"></i> Lihat Dashboard
+            </a>
+            <button class="btn btn-outline-secondary rounded-pill px-4" onclick="location.reload()">
+                <i class="fa-solid fa-rotate-right me-1"></i> Scan Siswa Lain
+            </button>
+        </div>
+    `;
+
+    resultCard.classList.remove('d-none');
+    resultCard.scrollIntoView({ behavior: 'smooth' });
+
+    Swal.fire({
+        icon: 'success',
+        title: 'Presensi Sukses!',
+        html: `<strong>${data.nama}</strong> tercatat <strong>${data.status}</strong> pada ${data.waktu} WIB.`,
+        timer: 3500,
+        showConfirmButton: false
+    });
+}
+
+function playSuccessSound() {
+    try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5
+        osc.frequency.setValueAtTime(880.00, audioCtx.currentTime + 0.1); // A5
+        gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.3);
+    } catch(e) {}
+}
+</script>
+{% endblock %}

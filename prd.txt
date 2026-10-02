@@ -1,0 +1,169 @@
+Buatkan saya aplikasi **absensi siswa berbasis web menggunakan Python Flask dengan AI Face Recognition dan Firebase Firestore sebagai database**.
+
+## Teknologi:
+
+* Backend: Python Flask
+* AI: OpenCV + Face Recognition
+* Database: Firebase Firestore
+* Frontend: HTML, CSS, JavaScript, Bootstrap
+* Authentication: Firebase Authentication
+
+## Fitur Utama:
+
+### 1. Role Siswa
+
+Siswa dapat:
+
+* Login.
+* Melakukan absensi menggunakan kamera.
+* Sistem mengenali wajah siswa.
+* Data absensi tersimpan otomatis ke Firebase.
+* Melihat riwayat absensi sendiri.
+
+Data absensi:
+
+* Nama siswa
+* ID siswa
+* Tanggal
+* Jam masuk
+* Status (Hadir/Terlambat)
+
+---
+
+### 2. Role Admin
+
+Admin dapat:
+
+* Login.
+* Melihat dashboard.
+* Melihat daftar siswa.
+* Mendaftarkan wajah siswa.
+* Melihat data absensi semua siswa.
+* Melihat laporan absensi berdasarkan tanggal.
+
+---
+
+## Sistem Face Recognition
+
+Alur:
+
+1. Admin mendaftarkan wajah siswa menggunakan kamera.
+2. Sistem membuat face encoding/embedding.
+3. Data wajah disimpan ke Firebase Firestore.
+4. Saat absensi:
+
+   * Kamera aktif.
+   * Sistem mendeteksi wajah.
+   * Wajah dicocokkan dengan data Firebase.
+   * Jika cocok, absensi otomatis dibuat.
+   * Jika tidak cocok, tampilkan pesan gagal.
+
+Tambahkan:
+
+* Pencegahan absensi dua kali dalam satu hari.
+* Threshold pengenalan wajah.
+* Validasi hanya satu wajah dalam kamera.
+
+---
+
+## Struktur Firestore sederhana:
+
+```
+users
+ └── user_id
+      ├── nama
+      ├── email
+      └── role
+          (admin/siswa)
+
+
+students
+ └── student_id
+      ├── nama
+      ├── kelas
+      ├── nis
+      └── face_encoding
+
+
+attendance
+ └── attendance_id
+      ├── student_id
+      ├── nama
+      ├── tanggal
+      ├── waktu
+      └── status
+```
+
+---
+
+## Halaman Aplikasi:
+
+### Siswa:
+
+* Login
+* Dashboard
+* Absensi Kamera
+* Riwayat Absensi
+
+### Admin:
+
+* Login
+* Dashboard Admin
+* Data Siswa
+* Daftar Wajah
+* Laporan Absensi
+
+---
+
+## Ketentuan Coding:
+
+Buat project yang rapi:
+
+```
+absensi-ai/
+│
+├── app.py
+├── firebase_config.py
+├── requirements.txt
+│
+├── templates/
+│   ├── login.html
+│   ├── dashboard.html
+│   ├── attendance.html
+│   └── admin.html
+│
+├── static/
+│   ├── css/
+│   └── js/
+│
+└── face/
+    ├── detect.py
+    └── recognize.py
+```
+
+---
+
+## Output yang saya inginkan:
+
+Buat aplikasi yang bisa langsung dijalankan.
+
+Berikan:
+
+1. Struktur folder.
+2. Requirements.txt.
+3. Konfigurasi Firebase.
+4. Kode Flask.
+5. Kode face recognition.
+6. Tampilan HTML.
+7. Cara instalasi.
+8. Cara menjalankan aplikasi.
+
+Gunakan kode sederhana, mudah dipahami, dan cocok untuk project sekolah.
+
+Jangan membuat fitur yang terlalu kompleks. Fokus pada:
+
+* Login role admin/siswa.
+* Deteksi wajah.
+* Absensi otomatis.
+* Laporan absensi.
+* Penyimpanan Firebase Firestore.

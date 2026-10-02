@@ -1,0 +1,16 @@
+venv/
+env/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.git/
+.gitignore
+serviceAccountKey.json
+local_firestore.json
+.env
+.env.*
+README.md
+DEPLOYMENT.md
+prd.txt

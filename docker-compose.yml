@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    container_name: absensi_ai_app
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+      - ENVIRONMENT=production
+      - SECRET_KEY=ganti-dengan-secret-key-acak-anda
+      - BATAS_JAM_MASUK=07:15
+      # Masukkan kredensial Firebase di bawah ini (opsional jika menggunakan file volume)
+      # - FIREBASE_CREDENTIALS_JSON={"type": "service_account", ...}
+    volumes:
+      # Opsi jika menggunakan file fisik serviceAccountKey.json di server:
+      - ./serviceAccountKey.json:/app/serviceAccountKey.json:ro
+    restart: unless-stopped

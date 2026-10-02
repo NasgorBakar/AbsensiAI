@@ -1,0 +1,51 @@
+# Virtual Environments
+venv/
+env/
+ENV/
+.venv/
+
+# Python cache & build
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Firebase & Secret Keys (CRITICAL: JANGAN PERNAH UPLOAD KE GITHUB)
+serviceAccountKey.json
+*.pem
+*.key
+.env
+.env.local
+.env.production
+
+# Local Database Simulator (opsional jika tidak ingin upload data tes)
+local_firestore.json
+
+# IDEs & Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Operating System
+Thumbs.db
+ehthumbs.db
+Desktop.ini
